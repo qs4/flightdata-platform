@@ -1,0 +1,53 @@
+x-app: &app
+  build: .
+  image: flightdata-platform:dev
+  environment:
+    FLIGHTDATA_DATABASE_URL: postgresql+psycopg://flightdata:flightdata@db:5432/flightdata
+    # Taken from your shell or from a .env file next to this compose file.
+    FLIGHTDATA_OPENSKY_CLIENT_ID: ${FLIGHTDATA_OPENSKY_CLIENT_ID:-}
+    FLIGHTDATA_OPENSKY_CLIENT_SECRET: ${FLIGHTDATA_OPENSKY_CLIENT_SECRET:-}
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      # Development defaults only. Use real secrets for anything that is deployed.
+      POSTGRES_USER: flightdata
+      POSTGRES_PASSWORD: flightdata
+      POSTGRES_DB: flightdata
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flightdata -d flightdata"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # One-shot job: creates the tables, then exits.
+  init-db:
+    <<: *app
+    command: ["python", "-m", "flightdata.db"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    ports:
+      - "8000:8000"
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
+
+  ingest:
+    <<: *app
+    command: ["python", "-m", "flightdata.ingest"]
+    restart: unless-stopped
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
