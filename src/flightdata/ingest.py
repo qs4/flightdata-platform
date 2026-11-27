@@ -1,7 +1,7 @@
 """Ingestion service: poll OpenSky, parse, store.
 
-    python -m flightdata.ingest          # poll forever
-    python -m flightdata.ingest --once   # fetch once and exit
+python -m flightdata.ingest          # poll forever
+python -m flightdata.ingest --once   # fetch once and exit
 """
 
 import argparse
